@@ -7,6 +7,7 @@ var histogram = require('ascii-histogram');
 
 const optionDefinitions = [
   { name: 'src', type: String, defaultOption: true },
+  { name: 'diff', type: String, multiple: true },
   { name: 'help', alias: 'h', type: Boolean }
 ];
 
@@ -22,7 +23,18 @@ function loadFile(src, callback) {
   }
 }
 
-function makeCallback() {
+function makeDiffCallback() {
+  var data = {'sum': 0, 'count': 0};
+  return {
+    callback: (function(node) {
+      data.sum += node.arguments[4].elements.length;
+      data.count++;
+    }),
+    data: data
+  }
+}
+
+function makeHistogramCallback() {
   var data = {};
   return {
     callback: (function(node) {
@@ -45,13 +57,27 @@ function printNode(node) {
 
 function usage() {
   const print = console.error;
-  print("Usage: pyret-ar-print [options] file");
+  print("Usage: pyret-ar-print [options] (file | --diff file1 file2)");
+  print("By default, prints a histogram of the given file.");
   print("Available options:");
+  print("     --diff    Compare counts of file1 and file2");
+  print("               [Note: it typically only makes sense");
+  print("                      to pass compiled Phase A and");
+  print("                      Phase B files if running on the");
+  print("                      Pyret compiler itself.]");
   print("  -h,--help    Show this help message");
 }
 
 const args = commandLineArgs(optionDefinitions);
-if (!args.src) {
+if (args.src && args.diff) {
+  console.error("Extra source file given.");
+  usage();
+  process.exit(1);
+} else if (args.diff && args.diff.length != 2) {
+  console.error("Option --diff requires exactly two files.")
+  usage();
+  process.exit(1);
+} if (!args.diff && !args.src) {
   console.error("Missing required argument: src");
   usage();
   process.exit(1);
@@ -60,8 +86,30 @@ if (!args.src) {
   process.exit(1);
 }
 
-loadFile(args.src, code => {
-  var cb = makeCallback();
-  astUtils.getActivationRecords(code, cb.callback);
-  console.log(histogram(cb.data));
-});
+if (args.diff) {
+  loadFile(args.diff[0], code0 => {
+    loadFile(args.diff[1], code1 => {
+      var cb0 = makeDiffCallback();
+      var cb1 = makeDiffCallback();
+      astUtils.getActivationRecords(code0, cb0.callback);
+      astUtils.getActivationRecords(code1, cb1.callback);
+      var avg0 = cb0.data.sum / cb0.data.count;
+      var avg1 = cb1.data.sum / cb1.data.count;
+      var pctDiff = (avg1 - avg0) / avg0;
+      var verb;
+      if (avg1 < avg0) {
+        console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
+      } else if (avg1 == avg0) {
+        console.log(`Average AR size STAYED THE SAME at ${avg0}.`);
+      } else {
+        console.log(`Average AR size GREW from ${avg0} to ${avg1} (${pctDiff}% increase).`);
+      }
+    });
+  });
+} else {
+  loadFile(args.src, code => {
+    var cb = makeHistogramCallback();
+    astUtils.getActivationRecords(code, cb.callback);
+    console.log(histogram(cb.data));
+  });
+}
