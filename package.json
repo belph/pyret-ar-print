@@ -1,0 +1,26 @@
+{
+    "name" : "pyret-ar-print", 
+    "description" : "Prints Activation Record Sizes",
+    "version" : "0.0.1",
+    "author" : {
+        "name" : "Philip Blair",
+        "email" : "philip@pblair.org"
+    },
+    "contributors" : [],
+    "config" : {
+    },
+    "bin" : { "pyret-ar-print" : "./main.js" }, 
+    "scripts" : { },
+    "repository" : {
+        "type" : "git",
+        "url" : "http://github.com/belph/pyret-ar-print.git"
+    },
+    "bugs" : "http://github.com/belph/pyret-ar-print/issues",
+    "dependencies" : { 
+        "acorn" : "~4.0.3",
+        "astring": "~0.8.0",
+        "ascii-histogram": "~1.2.1",
+        "command-line-args": "~3.0.4"
+    },
+    "license" : "MIT"
+}
