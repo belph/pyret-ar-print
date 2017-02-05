@@ -95,7 +95,7 @@ if (args.diff) {
       astUtils.getActivationRecords(code1, cb1.callback);
       var avg0 = cb0.data.sum / cb0.data.count;
       var avg1 = cb1.data.sum / cb1.data.count;
-      var pctDiff = (avg1 - avg0) / avg0;
+      var pctDiff = (avg1 - avg0) / avg0 * 100;
       var verb;
       if (avg1 < avg0) {
         console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
