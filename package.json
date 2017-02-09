@@ -11,6 +11,7 @@
     },
     "bin" : { "pyret-ar-print" : "./main.js" }, 
     "scripts" : { },
+    "main": "main.js",
     "repository" : {
         "type" : "git",
         "url" : "http://github.com/belph/pyret-ar-print.git"
