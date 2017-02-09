@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 var astUtils = require('./ast-utils.js');
 var astring = require('astring');
 var commandLineArgs = require('command-line-args');
@@ -49,6 +48,24 @@ function makeHistogramCallback() {
   }
 }
 
+function processFile(file, callback) {
+  // callback should have the following fields:
+  //   callback.callback :: (AST Node -> Any)
+  //   callback.data :: Any
+  // The callback will be called on every Activation Record
+  // in `file`, and `callback.data` will be returned.
+  loadFile(file, code => {
+    astUtils.getActivationRecords(code, callback.callback);
+    console.log(callback.data);
+  });
+}
+
+function printHistogram(file) {
+  var cb = makeHistogramCallback();
+  processFile(file, cb);
+  console.log(histogram(cb.data));
+}
+
 function printNode(node) {
   var args = node.arguments;
   console.log(astring(args[4], {indent: '  ', lineEnd: '\n'}));
@@ -68,48 +85,57 @@ function usage() {
   print("  -h,--help    Show this help message");
 }
 
-const args = commandLineArgs(optionDefinitions);
-if (args.src && args.diff) {
-  console.error("Extra source file given.");
-  usage();
-  process.exit(1);
-} else if (args.diff && args.diff.length != 2) {
-  console.error("Option --diff requires exactly two files.")
-  usage();
-  process.exit(1);
-} if (!args.diff && !args.src) {
-  console.error("Missing required argument: src");
-  usage();
-  process.exit(1);
-} else if (args.help) {
-  usage();
-  process.exit(1);
+if (require.main === module) {
+  // called as script
+  const args = commandLineArgs(optionDefinitions);
+  if (args.src && args.diff) {
+    console.error("Extra source file given.");
+    usage();
+    process.exit(1);
+  } else if (args.diff && args.diff.length != 2) {
+    console.error("Option --diff requires exactly two files.")
+    usage();
+    process.exit(1);
+  } if (!args.diff && !args.src) {
+    console.error("Missing required argument: src");
+    usage();
+    process.exit(1);
+  } else if (args.help) {
+    usage();
+    process.exit(1);
+  }
+
+  if (args.diff) {
+    loadFile(args.diff[0], code0 => {
+      loadFile(args.diff[1], code1 => {
+        var cb0 = makeDiffCallback();
+        var cb1 = makeDiffCallback();
+        astUtils.getActivationRecords(code0, cb0.callback);
+        astUtils.getActivationRecords(code1, cb1.callback);
+        var avg0 = cb0.data.sum / cb0.data.count;
+        var avg1 = cb1.data.sum / cb1.data.count;
+        var pctDiff = Math.abs((avg1 - avg0) / avg0 * 100);
+        var verb;
+        if (avg1 < avg0) {
+          console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
+        } else if (avg1 == avg0) {
+          console.log(`Average AR size STAYED THE SAME at ${avg0}.`);
+        } else {
+          console.log(`Average AR size GREW from ${avg0} to ${avg1} (${pctDiff}% increase).`);
+        }
+      });
+    });
+  } else {
+    loadFile(args.src, code => {
+      var cb = makeHistogramCallback();
+      astUtils.getActivationRecords(code, cb.callback);
+      console.log(histogram(cb.data));
+    });
+  }
 }
 
-if (args.diff) {
-  loadFile(args.diff[0], code0 => {
-    loadFile(args.diff[1], code1 => {
-      var cb0 = makeDiffCallback();
-      var cb1 = makeDiffCallback();
-      astUtils.getActivationRecords(code0, cb0.callback);
-      astUtils.getActivationRecords(code1, cb1.callback);
-      var avg0 = cb0.data.sum / cb0.data.count;
-      var avg1 = cb1.data.sum / cb1.data.count;
-      var pctDiff = Math.abs((avg1 - avg0) / avg0 * 100);
-      var verb;
-      if (avg1 < avg0) {
-        console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
-      } else if (avg1 == avg0) {
-        console.log(`Average AR size STAYED THE SAME at ${avg0}.`);
-      } else {
-        console.log(`Average AR size GREW from ${avg0} to ${avg1} (${pctDiff}% increase).`);
-      }
-    });
-  });
-} else {
-  loadFile(args.src, code => {
-    var cb = makeHistogramCallback();
-    astUtils.getActivationRecords(code, cb.callback);
-    console.log(histogram(cb.data));
-  });
+module.exports = {
+  'getActivationRecords': astUtils.getActivationRecords,
+  'processFile': processFile,
+  'printHistogram': printHistogram
 }
