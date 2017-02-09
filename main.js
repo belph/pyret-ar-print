@@ -56,7 +56,7 @@ function processFile(file, callback) {
   // in `file`, and `callback.data` will be returned.
   loadFile(file, code => {
     astUtils.getActivationRecords(code, callback.callback);
-    console.log(callback.data);
+    return callback.data;
   });
 }
 
@@ -69,7 +69,7 @@ function printHistogram(file) {
 function printNode(node) {
   var args = node.arguments;
   console.log(astring(args[4], {indent: '  ', lineEnd: '\n'}));
-  console.log(args[4].elements.length)
+  console.log(args[4].elements.length);
 }
 
 function usage() {
