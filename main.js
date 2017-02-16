@@ -7,7 +7,8 @@ var histogram = require('ascii-histogram');
 const optionDefinitions = [
   { name: 'src', type: String, defaultOption: true },
   { name: 'diff', type: String, multiple: true },
-  { name: 'help', alias: 'h', type: Boolean }
+  { name: 'help', alias: 'h', type: Boolean },
+  { name: 'list', alias: 'l', type: Boolean }
 ];
 
 function loadFile(src, callback) {
@@ -48,12 +49,30 @@ function makeHistogramCallback() {
   }
 }
 
+function processFiles(files, callback) {
+  files.forEach(file => {
+    processFile(file, callback);
+  });
+}
+
+function processFileList(fileList, callback) {
+  loadFile(fileList, filesStr => {
+    var files = filesStr.trim().split("\n");
+    if (files.length === 0) {
+      console.warn("File list is empty: " + fileList);
+      return null;
+    }
+    return processFiles(files, callback);
+  });
+}
+
 function processFile(file, callback) {
   // callback should have the following fields:
   //   callback.callback :: (AST Node -> Any)
   //   callback.data :: Any
   // The callback will be called on every Activation Record
   // in `file`, and `callback.data` will be returned.
+  console.log("Processing file: " + file);
   loadFile(file, code => {
     astUtils.getActivationRecords(code, callback.callback);
     return callback.data;
@@ -83,6 +102,7 @@ function usage() {
   print("                      Phase B files if running on the");
   print("                      Pyret compiler itself.]");
   print("  -h,--help    Show this help message");
+  print("  -l,--list   Treat the input files as lists of files");
 }
 
 if (require.main === module) {
@@ -105,32 +125,28 @@ if (require.main === module) {
     process.exit(1);
   }
 
+  var processor = args.list ? processFileList : processFile;
+
   if (args.diff) {
-    loadFile(args.diff[0], code0 => {
-      loadFile(args.diff[1], code1 => {
-        var cb0 = makeDiffCallback();
-        var cb1 = makeDiffCallback();
-        astUtils.getActivationRecords(code0, cb0.callback);
-        astUtils.getActivationRecords(code1, cb1.callback);
-        var avg0 = cb0.data.sum / cb0.data.count;
-        var avg1 = cb1.data.sum / cb1.data.count;
-        var pctDiff = Math.abs((avg1 - avg0) / avg0 * 100);
-        var verb;
-        if (avg1 < avg0) {
-          console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
-        } else if (avg1 == avg0) {
-          console.log(`Average AR size STAYED THE SAME at ${avg0}.`);
-        } else {
-          console.log(`Average AR size GREW from ${avg0} to ${avg1} (${pctDiff}% increase).`);
-        }
-      });
-    });
+    var cb0 = makeDiffCallback();
+    var cb1 = makeDiffCallback();
+    processor(args.diff[0], cb0);
+    processor(args.diff[1], cb1);
+    var avg0 = cb0.data.sum / cb0.data.count;
+    var avg1 = cb1.data.sum / cb1.data.count;
+    var pctDiff = Math.abs((avg1 - avg0) / avg0 * 100);
+    var verb;
+    if (avg1 < avg0) {
+      console.log(`Average AR size shrank from ${avg0} to ${avg1} (${pctDiff}% reduction).`);
+    } else if (avg1 == avg0) {
+      console.log(`Average AR size STAYED THE SAME at ${avg0}.`);
+    } else {
+      console.log(`Average AR size GREW from ${avg0} to ${avg1} (${pctDiff}% increase).`);
+    }
   } else {
-    loadFile(args.src, code => {
-      var cb = makeHistogramCallback();
-      astUtils.getActivationRecords(code, cb.callback);
-      console.log(histogram(cb.data));
-    });
+    var cb = makeHistogramCallback();
+    processor(args.src, cb);
+    console.log(histogram(cb.data));
   }
 }
 

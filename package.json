@@ -1,7 +1,7 @@
 {
     "name" : "pyret-ar-print", 
     "description" : "Prints Activation Record Sizes",
-    "version" : "0.0.2",
+    "version" : "0.0.3",
     "author" : {
         "name" : "Philip Blair",
         "email" : "philip@pblair.org"
